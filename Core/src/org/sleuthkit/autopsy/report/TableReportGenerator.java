@@ -177,8 +177,8 @@ class TableReportGenerator {
                      * compund name by appending a ":" and the account type.
                      */
                     String accountDisplayname = accountType;
-                    for (Account.Type acct : Account.Type.values()) {
-                        if (acct.equals(Account.Type.valueOf(accountType))) {
+                    for (Account.Type acct : Account.Type.PREDEFINED_ACCOUNT_TYPES) {
+                        if (accountType.equals(acct.getTypeName())) {
                             accountDisplayname = acct.getDisplayName();
                             break;
                         }

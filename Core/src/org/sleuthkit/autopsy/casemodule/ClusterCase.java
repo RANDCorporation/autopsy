@@ -23,15 +23,12 @@ package org.sleuthkit.autopsy.casemodule;
  */
 public class ClusterCase extends Case {
     
-    public ClusterCase(CaseType caseType, String caseDir, String caseDisplayName, String caseNumber, String examiner) {
+    /*public ClusterCase(CaseType caseType, String caseDir, String caseDisplayName, String caseNumber, String examiner) {
         super(caseType, caseDir, caseDisplayName, caseNumber, examiner);
-    }
+    }*/
 
     public ClusterCase(CaseMetadata metadata) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    public ClusterCase(CaseMetadata metadata) {
+        super(metadata);
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 

@@ -132,11 +132,11 @@ public class Case {
     private static final String CASE_ACTION_THREAD_NAME = "%s-case-action";
     private static final String CASE_RESOURCES_THREAD_NAME = "%s-manage-case-resources";
     private static final Logger logger = Logger.getLogger(Case.class.getName());
-    protected static final AutopsyEventPublisher eventPublisher = new AutopsyEventPublisher();
+    private static final AutopsyEventPublisher eventPublisher = new AutopsyEventPublisher();
     private static final Object caseActionSerializationLock = new Object();
     private static volatile Frame mainFrame;
     private static volatile Case currentCase;
-    protected final CaseMetadata metadata;
+    private final CaseMetadata metadata;
     private volatile ExecutorService caseLockingExecutor;
     private CoordinationService.Lock caseDirLock;
     private SleuthkitCase caseDb;
@@ -1625,8 +1625,8 @@ public class Case {
      * @param examiner        The examiner to associate with the case, can be
      *                        the empty string.
      */
-    protected Case(CaseType caseType, String caseDir, String caseDisplayName, String caseNumber, String examiner) {
-        metadata = new CaseMetadata(caseDir, caseType, displayNameToUniqueName(caseDisplayName), caseDisplayName, caseNumber, examiner);
+    private Case(CaseType caseType, String caseDir, CaseDetails caseDetails) {
+        metadata = new CaseMetadata(caseType, caseDir, displayNameToUniqueName(caseDetails.getCaseDisplayName()), caseDetails);
     }
 
     /**

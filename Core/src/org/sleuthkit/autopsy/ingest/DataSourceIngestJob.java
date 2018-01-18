@@ -49,7 +49,7 @@ import org.sleuthkit.autopsy.modules.interestingitems.FilesSet;
  * Encapsulates a data source and the ingest module pipelines used to process
  * it.
  */
-final class DataSourceIngestJob {
+final public class DataSourceIngestJob {
 
     private static final Logger logger = Logger.getLogger(DataSourceIngestJob.class.getName());
 

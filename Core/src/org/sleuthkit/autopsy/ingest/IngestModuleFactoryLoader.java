@@ -81,7 +81,7 @@ final class IngestModuleFactoryLoader {
         // factories.
         HashSet<String> moduleDisplayNames = new HashSet<>();
         HashMap<String, IngestModuleFactory> javaFactoriesByClass = new HashMap<>();
-
+           System.err.println("Lookup " + (Lookup.getDefault().lookupAll(IngestModuleFactory.class)).toString());
         // Discover the ingest module factories implemented using Java with a
         // service provider annotation for the IngestModuleFactory interface.
         for (IngestModuleFactory factory : Lookup.getDefault().lookupAll(IngestModuleFactory.class)) {

@@ -58,6 +58,8 @@ public final class CoordinationService {
     private static final int ZOOKEEPER_CONNECTION_TIMEOUT_MILLIS = 15000;
     private static final int PORT_OFFSET = 1000; // When run in Solr, ZooKeeper defaults to Solr port + 1000
     private static final String DEFAULT_NAMESPACE_ROOT = "autopsy";
+    private static Integer zooKeeperServerPort = null;
+    private static String zookeeperServerHost = null;
     @GuardedBy("CoordinationService.class")
     private static CoordinationService instance;
     private final CuratorFramework curator;
@@ -76,8 +78,8 @@ public final class CoordinationService {
     private static boolean isZooKeeperAccessible() throws InterruptedException, IOException {
         boolean result = false;
         Object workerThreadWaitNotifyLock = new Object();
-        int zooKeeperServerPort = Integer.valueOf(UserPreferences.getIndexingServerPort()) + PORT_OFFSET;
-        String connectString = UserPreferences.getIndexingServerHost() + ":" + zooKeeperServerPort;
+        if (zooKeeperServerPort == null) zooKeeperServerPort = Integer.valueOf(UserPreferences.getIndexingServerPort()) + PORT_OFFSET;
+        String connectString = (zookeeperServerHost == null ? UserPreferences.getIndexingServerHost() : zookeeperServerHost) + ":" + zooKeeperServerPort;
         ZooKeeper zooKeeper = new ZooKeeper(connectString, ZOOKEEPER_SESSION_TIMEOUT_MILLIS,
                 (WatchedEvent event) -> {
                     synchronized (workerThreadWaitNotifyLock) {
@@ -142,8 +144,8 @@ public final class CoordinationService {
          * Connect to ZooKeeper via Curator.
          */
         RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 3);
-        int zooKeeperServerPort = Integer.valueOf(UserPreferences.getIndexingServerPort()) + PORT_OFFSET;
-        String connectString = UserPreferences.getIndexingServerHost() + ":" + zooKeeperServerPort;
+        if (zooKeeperServerPort == null) zooKeeperServerPort = Integer.valueOf(UserPreferences.getIndexingServerPort()) + PORT_OFFSET;
+        String connectString = (zookeeperServerHost == null ? UserPreferences.getIndexingServerHost() : zookeeperServerHost) + ":" + zooKeeperServerPort;
         curator = CuratorFrameworkFactory.newClient(connectString, SESSION_TIMEOUT_MILLISECONDS, CONNECTION_TIMEOUT_MILLISECONDS, retryPolicy);
         curator.start();
 
@@ -387,7 +389,17 @@ public final class CoordinationService {
      * @return
      */
     private String getFullyQualifiedNodePath(CategoryNode category, String nodePath) {
-        return categoryNodeToPath.get(category.getDisplayName()) + "/" + nodePath.toUpperCase();
+        return categoryNodeToPath.get(category.getDisplayName()) + (nodePath.charAt(0)== 47 ? "" : "/") + nodePath.toUpperCase();
+    }
+
+    public static void setZooKeeperServerPort(int port)
+    {
+        zooKeeperServerPort = port;
+    }
+
+    public static void setZooKeeperServerHost(String host)
+    {
+        zookeeperServerHost = host;
     }
 
     /**

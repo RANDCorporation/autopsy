@@ -825,7 +825,7 @@ public class Server {
                 dataDir.mkdirs();
             }
 
-            if (!this.isRunning()) {
+            if (theCase.getCaseType() == CaseType.SINGLE_USER_CASE && !this.isRunning()) {
                 logger.log(Level.SEVERE, "Core create/open requested, but server not yet running"); //NON-NLS
                 throw new KeywordSearchModuleException(NbBundle.getMessage(this.getClass(), "Server.openCore.exception.msg"));
             }

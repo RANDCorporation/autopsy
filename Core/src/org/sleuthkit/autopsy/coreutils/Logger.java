@@ -145,9 +145,13 @@ public final class Logger extends java.util.logging.Logger {
          * and the two overloads of getLogger() are synchronized, serializing
          * access to userFriendlyHandler and developerFriendlyHandler.
          */
-        userFriendlyHandler.close();
+        if (userFriendlyHandler != null){
+            userFriendlyHandler.close();
+        }
         userFriendlyHandler = newUserFriendlyHandler;
-        developerFriendlyHandler.close();
+        if (developerFriendlyHandler != null){
+            developerFriendlyHandler.close();
+        }
         developerFriendlyHandler = newDeveloperFriendlyHandler;
     }
 

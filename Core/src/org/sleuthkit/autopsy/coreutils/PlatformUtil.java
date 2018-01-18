@@ -217,7 +217,8 @@ public class PlatformUtil {
      * @return Get log directory path string
      */
     public static String getLogDirectory() {
-        return Places.getUserDirectory().getAbsolutePath() + File.separator
+        File userDir = Places.getUserDirectory();
+        return (userDir != null ? userDir.getAbsolutePath() : "") + File.separator
                 + "var" + File.separator + "log" + File.separator; //NON-NLS
     }
 

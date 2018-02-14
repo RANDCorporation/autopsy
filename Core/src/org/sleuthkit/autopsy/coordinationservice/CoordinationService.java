@@ -58,6 +58,7 @@ public final class CoordinationService {
     private static final int ZOOKEEPER_CONNECTION_TIMEOUT_MILLIS = 15000;
     private static final int PORT_OFFSET = 1000; // When run in Solr, ZooKeeper defaults to Solr port + 1000
     private static final String DEFAULT_NAMESPACE_ROOT = "autopsy";
+    private static String zooKeeperURL = null;
     @GuardedBy("CoordinationService.class")
     private static CoordinationService instance;
     private final CuratorFramework curator;
@@ -77,7 +78,9 @@ public final class CoordinationService {
         boolean result = false;
         Object workerThreadWaitNotifyLock = new Object();
         int zooKeeperServerPort = Integer.valueOf(UserPreferences.getIndexingServerPort()) + PORT_OFFSET;
-        String connectString = UserPreferences.getIndexingServerHost() + ":" + zooKeeperServerPort;
+        String connectString = zooKeeperURL == null ? 
+            (UserPreferences.getIndexingServerHost() + ":" + zooKeeperServerPort)
+            : zooKeeperURL;
         ZooKeeper zooKeeper = new ZooKeeper(connectString, ZOOKEEPER_SESSION_TIMEOUT_MILLIS,
                 (WatchedEvent event) -> {
                     synchronized (workerThreadWaitNotifyLock) {
@@ -105,6 +108,17 @@ public final class CoordinationService {
      * @throws CoordinationServiceException
      */
     public synchronized static CoordinationService getInstance() throws CoordinationServiceException {
+
+        /*
+         * Attempt to get ZooKeeper URL from environment
+         */
+        if (System.getenv("ZOOKEEPER_URL") != null){
+            System.out.println("GOT ZOOKEEPER_URL = " + System.getenv("ZOOKEEPER_URL"));
+            zooKeeperURL = System.getenv("ZOOKEEPER_URL");
+        }
+        else System.out.println("DIDN'T GET ZOOKEEPER_URL");
+
+
         if (null == instance) {
             String rootNode;
             Collection<? extends CoordinationServiceNamespace> providers = Lookup.getDefault().lookupAll(CoordinationServiceNamespace.class);
@@ -143,7 +157,9 @@ public final class CoordinationService {
          */
         RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 3);
         int zooKeeperServerPort = Integer.valueOf(UserPreferences.getIndexingServerPort()) + PORT_OFFSET;
-        String connectString = UserPreferences.getIndexingServerHost() + ":" + zooKeeperServerPort;
+        String connectString = zooKeeperURL == null ? 
+            (UserPreferences.getIndexingServerHost() + ":" + zooKeeperServerPort)
+            : zooKeeperURL;
         curator = CuratorFrameworkFactory.newClient(connectString, SESSION_TIMEOUT_MILLISECONDS, CONNECTION_TIMEOUT_MILLISECONDS, retryPolicy);
         curator.start();
 
@@ -387,7 +403,7 @@ public final class CoordinationService {
      * @return
      */
     private String getFullyQualifiedNodePath(CategoryNode category, String nodePath) {
-        return categoryNodeToPath.get(category.getDisplayName()) + "/" + nodePath.toUpperCase();
+        return categoryNodeToPath.get(category.getDisplayName()) + (nodePath.charAt(0)== 47 ? "" : "/") + nodePath.toUpperCase();
     }
 
     /**

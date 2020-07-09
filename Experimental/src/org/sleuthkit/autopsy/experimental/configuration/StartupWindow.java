@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  *
- * Copyright 2011 Basis Technology Corp.
+ * Copyright 2011-2017 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,9 +33,10 @@ import org.openide.util.lookup.ServiceProvider;
 import org.openide.windows.WindowManager;
 import org.sleuthkit.autopsy.casemodule.CueBannerPanel;
 import org.sleuthkit.autopsy.casemodule.StartupWindowInterface;
+import org.sleuthkit.autopsy.core.UserPreferences;
 import org.sleuthkit.autopsy.coreutils.NetworkUtils;
-import org.sleuthkit.autopsy.experimental.autoingest.AutoIngestDashboard;
-import org.sleuthkit.autopsy.experimental.autoingest.ReviewModeCasePanel;
+import org.sleuthkit.autopsy.experimental.autoingest.AutoIngestControlPanel;
+import org.sleuthkit.autopsy.experimental.autoingest.AutoIngestCasePanel;
 
 /**
  * The default implementation of the Autopsy startup window
@@ -47,7 +48,7 @@ public final class StartupWindow extends JDialog implements StartupWindowInterfa
     private static Dimension DIMENSIONS = new Dimension(750, 400);
     private static CueBannerPanel welcomeWindow;
     private static final long serialVersionUID = 1L;
-    private ReviewModeCasePanel caseManagementPanel = null;
+    private AutoIngestCasePanel caseManagementPanel = null;
     private static final String LOCAL_HOST_NAME = NetworkUtils.getLocalHostName();
 
     public StartupWindow() {
@@ -103,24 +104,24 @@ public final class StartupWindow extends JDialog implements StartupWindowInterfa
      * user.
      */
     private void addPanelForMode() {
-        AutoIngestUserPreferences.SelectedMode mode = AutoIngestUserPreferences.getMode();
+        UserPreferences.SelectedMode mode = UserPreferences.getMode();
 
         switch (mode) {
-            case AUTOMATED:
+            case AUTOINGEST:
                 this.setTitle(NbBundle.getMessage(StartupWindow.class, "StartupWindow.AutoIngestMode") + " (" + LOCAL_HOST_NAME + ")");
                 setIconImage(ImageUtilities.loadImage("org/sleuthkit/autopsy/experimental/images/frame.gif", false)); //NON-NLS
                 this.addWindowListener(new WindowAdapter() {
                     @Override
                     public void windowClosing(WindowEvent e) {
-                        AutoIngestDashboard.getInstance().shutdown();
+                        AutoIngestControlPanel.getInstance().shutdown();
                     }
                 });
                 setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-                add(AutoIngestDashboard.getInstance());
+                add(AutoIngestControlPanel.getInstance());
                 break;
             case REVIEW:
                 this.setTitle(NbBundle.getMessage(StartupWindow.class, "StartupWindow.ReviewMode") + " (" + LOCAL_HOST_NAME + ")");
-                caseManagementPanel = new ReviewModeCasePanel(this);
+                caseManagementPanel = new AutoIngestCasePanel(this);
                 setIconImage(ImageUtilities.loadImage("org/sleuthkit/autopsy/experimental/images/frame.gif", false)); //NON-NLS
                 add(caseManagementPanel);
                 break;

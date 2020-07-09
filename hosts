@@ -1,0 +1,14 @@
+127.0.0.1	desh_postgres_local
+0.0.0.0	desh_postgres
+0.0.0.0	kafka-0
+0.0.0.0	kafka-1
+0.0.0.0	kafka-2
+0.0.0.0	kafka-3
+0.0.0.0	kafka-4
+0.0.0.0	kafka-5
+0.0.0.0	kafka-6
+0.0.0.0	kafka-7
+0.0.0.0	kafka-9
+0.0.0.0	kafka-8
+0.0.0.0	nodeport-0
+0.0.0.0	spark-master

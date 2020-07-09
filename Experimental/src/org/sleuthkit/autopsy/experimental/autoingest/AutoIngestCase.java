@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  *
- * Copyright 2015 Basis Technology Corp.
+ * Copyright 2015-2017 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,14 +39,13 @@ class AutoIngestCase implements Comparable<AutoIngestCase> {
     private final String caseName;
     private final Path metadataFilePath;
     private final Date createDate;
-    private Date lastModfiedDate;
+    private final Date lastAccessedDate;
 
     /**
      * Constructs a representation of case created by automated ingest.
      *
      * @param caseDirectoryPath The case directory path.
      */
-    // RJCTODO: Throw instead of reporting error, let client decide what to do.
     AutoIngestCase(Path caseDirectoryPath) {
         this.caseDirectoryPath = caseDirectoryPath;
         caseName = PathUtils.caseNameFromCaseDirectoryPath(caseDirectoryPath);
@@ -59,10 +58,10 @@ class AutoIngestCase implements Comparable<AutoIngestCase> {
         }
         if (null != fileAttrs) {
             createDate = new Date(fileAttrs.creationTime().toMillis());
-            lastModfiedDate = new Date(fileAttrs.lastModifiedTime().toMillis());
+            lastAccessedDate = new Date(fileAttrs.lastAccessTime().toMillis());
         } else {
             createDate = new Date();
-            lastModfiedDate = new Date();
+            lastAccessedDate = new Date();
         }
     }
 
@@ -95,20 +94,13 @@ class AutoIngestCase implements Comparable<AutoIngestCase> {
     }
 
     /**
-     * Gets the last accessed date for the case, defined as the last modified
+     * Gets the last accessed date for the case, defined as the last accessed
      * time of the case metadata file.
      *
      * @return The last accessed date.
      */
-    // RJCTODO: Throw instead of reporting error, let client decide what to do.
     Date getLastAccessedDate() {
-        try {
-            BasicFileAttributes fileAttrs = Files.readAttributes(metadataFilePath, BasicFileAttributes.class);
-            lastModfiedDate = new Date(fileAttrs.lastModifiedTime().toMillis());
-        } catch (IOException ex) {
-            logger.log(Level.SEVERE, String.format("Error reading file attributes of case metadata file in %s, lastModfiedDate time not updated", caseDirectoryPath), ex);
-        }
-        return lastModfiedDate;
+        return this.lastAccessedDate;
     }
 
     /**
@@ -164,7 +156,7 @@ class AutoIngestCase implements Comparable<AutoIngestCase> {
      */
     @Override
     public int compareTo(AutoIngestCase other) {
-        return -this.lastModfiedDate.compareTo(other.getLastAccessedDate());
+        return -this.lastAccessedDate.compareTo(other.getLastAccessedDate());
     }
 
     /**

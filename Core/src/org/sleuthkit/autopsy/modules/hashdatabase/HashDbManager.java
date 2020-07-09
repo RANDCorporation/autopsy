@@ -52,7 +52,7 @@ import org.sleuthkit.datamodel.TskCoreException;
 
 /**
  * This class implements a singleton that manages the set of hash databases used
- * to classify files as unknown, known or known bad.
+ * to classify files as unknown, known or notable.
  */
 public class HashDbManager implements PropertyChangeListener {
 
@@ -128,7 +128,7 @@ public class HashDbManager implements PropertyChangeListener {
 
     /**
      * Adds an existing hash database to the set of hash databases used to
-     * classify files as known or known bad and saves the configuration.
+     * classify files as known or notable and saves the configuration.
      *
      * @param hashSetName        Name used to represent the hash database in
      *                           user interface components.
@@ -176,7 +176,7 @@ public class HashDbManager implements PropertyChangeListener {
 
     /**
      * Adds a new hash database to the set of hash databases used to classify
-     * files as known or known bad and saves the configuration.
+     * files as known or notable and saves the configuration.
      *
      * @param hashSetName        Hash set name used to represent the hash
      *                           database in user interface components.
@@ -295,7 +295,7 @@ public class HashDbManager implements PropertyChangeListener {
 
     /**
      * Removes a hash database from the set of hash databases used to classify
-     * files as known or known bad and saves the configuration.
+     * files as known or notable and saves the configuration.
      *
      * @param hashDb
      *
@@ -387,7 +387,7 @@ public class HashDbManager implements PropertyChangeListener {
     }
 
     /**
-     * Gets all of the hash databases used to classify files as known bad.
+     * Gets all of the hash databases used to classify files as notable.
      *
      * @return A list, possibly empty, of hash databases.
      */
@@ -492,7 +492,7 @@ public class HashDbManager implements PropertyChangeListener {
         the database from HashLookupSettings and the user may not know about this 
         because the dialogs are not being displayed. The next time user starts Autopsy, HashDB 
         will load without errors and the user may think that the problem was solved.*/
-        if (!allDatabasesLoadedCorrectly && RuntimeProperties.coreComponentsAreActive()) {
+        if (!allDatabasesLoadedCorrectly && RuntimeProperties.runningWithGUI()) {
             try {
                 HashLookupSettings.writeSettings(new HashLookupSettings(this.knownHashSets, this.knownBadHashSets));
                 allDatabasesLoadedCorrectly = true;
@@ -512,7 +512,7 @@ public class HashDbManager implements PropertyChangeListener {
 
         // Give the user an opportunity to find the desired file.
         String newPath = null;
-        if (RuntimeProperties.coreComponentsAreActive() && 
+        if (RuntimeProperties.runningWithGUI() && 
                 JOptionPane.showConfirmDialog(null,
                 NbBundle.getMessage(this.getClass(), "HashDbManager.dlgMsg.dbNotFoundAtLoc",
                         hashSetName, configuredPath),

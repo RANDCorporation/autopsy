@@ -1,0 +1,13 @@
+export TSK_HOME=$HOME/tsk
+export LIBEWF_HOME=$HOME/tsk
+export JDK_HOME=/usr
+export JAVA_HOME=/usr/lib/jvm/java-8-oracle/
+export ZOOKEEPER_URL=10.25.106.42:32181
+export SPARK_KAFKA_PORT=32092
+export SPARK_POSTGRES_HOST=postgres-service
+export SPARK_POSTGRES_PORT=5432
+export SPARK_BATCH_INTERVAL=60
+export SPARK_KAFKA_SERVER=kafka-0
+export SPARK_HOME=/home/desh_user/projects/spark-2.2.0-bin-hadoop2.7
+export SPARK_MASTER_URL=spark-master:32066
+export KAFKA_URL=10.25.106.42:32092

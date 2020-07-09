@@ -74,7 +74,7 @@ final class HashLookupSettings implements Serializable {
      * Constructs a settings object to be serialized for hash lookups
      *
      * @param knownHashSets    The list known hash sets for the settings.
-     * @param knownBadHashSets The list of known bad hash sets for the settings.
+     * @param knownBadHashSets The list of notable hash sets for the settings.
      */
     HashLookupSettings(List<HashDbManager.HashDb> knownHashSets, List<HashDbManager.HashDb> knownBadHashSets) throws HashLookupSettingsException {
         hashDbInfoList = new ArrayList<>();
@@ -203,7 +203,7 @@ final class HashLookupSettings implements Serializable {
                         newHashSetName = hashSetName + suffix;
                     } while (hashSetNames.contains(newHashSetName));
                     logger.log(Level.INFO, "Duplicate hash set name " + hashSetName + " found. Replacing with " + newHashSetName + ".");
-                    if (RuntimeProperties.coreComponentsAreActive()) {
+                    if (RuntimeProperties.runningWithGUI()) {
                         JOptionPane.showMessageDialog(null,
                                 NbBundle.getMessage(HashLookupSettings.class,
                                         "HashDbManager.replacingDuplicateHashsetNameMsg",
@@ -269,7 +269,7 @@ final class HashLookupSettings implements Serializable {
                 try {
                     FileUtils.copyFile(new File(configFilePath), new File(backupFilePath));
                     logger.log(Level.INFO, "Updated the schema, backup saved at: " + backupFilePath);
-                    if (RuntimeProperties.coreComponentsAreActive()) {
+                    if (RuntimeProperties.runningWithGUI()) {
                         JOptionPane.showMessageDialog(null,
                                 NbBundle.getMessage(HashLookupSettings.class,
                                         "HashDbManager.savedBackupOfOldConfigMsg",

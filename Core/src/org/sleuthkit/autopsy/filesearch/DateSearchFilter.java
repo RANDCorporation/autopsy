@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  *
- * Copyright 2011-2015 Basis Technology Corp.
+ * Copyright 2011-2017 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,6 +28,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -53,6 +54,9 @@ class DateSearchFilter extends AbstractFileSearchFilter<DateSearchPanel> {
     private static final DateFormat DATE_FORMAT = new SimpleDateFormat("MM/dd/yyyy");
     private static final String SEPARATOR = "SEPARATOR"; //NON-NLS
 
+    private static final Set<Case.Events> CASE_EVENTS_OF_INTEREST = EnumSet.of(Case.Events.CURRENT_CASE,
+            Case.Events.DATA_SOURCE_ADDED, Case.Events.DATA_SOURCE_DELETED);
+
     /**
      * New DateSearchFilter with the default panel
      */
@@ -62,7 +66,7 @@ class DateSearchFilter extends AbstractFileSearchFilter<DateSearchPanel> {
 
     private DateSearchFilter(DateSearchPanel panel) {
         super(panel);
-        Case.addPropertyChangeListener(this.new CasePropertyChangeListener());
+        Case.addEventTypeSubscriber(CASE_EVENTS_OF_INTEREST, this.new CasePropertyChangeListener());
     }
 
     @Override
@@ -94,7 +98,7 @@ class DateSearchFilter extends AbstractFileSearchFilter<DateSearchPanel> {
         } catch (ParseException ex) {
             // for now, no need to show the error message to the user here
         }
-        if (!startDateValue.equals("")) {
+        if (!startDateValue.isEmpty()) {
             if (startDate != null) {
                 fromDate = startDate.getTimeInMillis() / 1000; // divided by 1000 because we want to get the seconds, not miliseconds
             }
@@ -114,7 +118,7 @@ class DateSearchFilter extends AbstractFileSearchFilter<DateSearchPanel> {
         } catch (ParseException ex) {
             // for now, no need to show the error message to the user here
         }
-        if (!endDateValue.equals("")) {
+        if (!endDateValue.isEmpty()) {
             if (endDate != null) {
                 toDate = endDate.getTimeInMillis() / 1000; // divided by 1000 because we want to get the seconds, not miliseconds
             }
@@ -130,7 +134,7 @@ class DateSearchFilter extends AbstractFileSearchFilter<DateSearchPanel> {
         final boolean modifiedChecked = panel.getModifiedCheckBox().isSelected();
         final boolean changedChecked = panel.getChangedCheckBox().isSelected();
         final boolean accessedChecked = panel.getAccessedCheckBox().isSelected();
-        final boolean createdChecked = panel.getAccessedCheckBox().isSelected();
+        final boolean createdChecked = panel.getCreatedCheckBox().isSelected();
 
         if (modifiedChecked || changedChecked || accessedChecked || createdChecked) {
 
@@ -166,7 +170,7 @@ class DateSearchFilter extends AbstractFileSearchFilter<DateSearchPanel> {
 
         List<String> timeZones = new ArrayList<>();
 
-        if (Case.isCaseOpen()) {
+        try {
             // get the latest case
             Case currentCase = Case.getCurrentCase(); // get the most updated case
 
@@ -195,6 +199,8 @@ class DateSearchFilter extends AbstractFileSearchFilter<DateSearchPanel> {
                 String item = String.format("(GMT%+d:%02d) %s", hour, minutes, id); //NON-NLS
                 timeZones.add(item);
             }
+        } catch (IllegalStateException ex) {
+            // No current case.
         }
 
         return timeZones;
@@ -207,7 +213,7 @@ class DateSearchFilter extends AbstractFileSearchFilter<DateSearchPanel> {
 
     @Override
     public boolean isValid() {
-            return this.getComponent().isValidSearch();
+        return this.getComponent().isValidSearch();
     }
 
     /**

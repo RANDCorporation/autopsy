@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -311,7 +312,7 @@ final public class Accounts implements AutopsyVisitableItem {
             protected void removeNotify() {
                 IngestManager.getInstance().removeIngestJobEventListener(pcl);
                 IngestManager.getInstance().removeIngestModuleEventListener(pcl);
-                Case.removePropertyChangeListener(pcl);
+                Case.removeEventTypeSubscriber(EnumSet.of(Case.Events.CURRENT_CASE), pcl);
                 super.removeNotify();
             }
 
@@ -319,7 +320,7 @@ final public class Accounts implements AutopsyVisitableItem {
             protected void addNotify() {
                 IngestManager.getInstance().addIngestJobEventListener(pcl);
                 IngestManager.getInstance().addIngestModuleEventListener(pcl);
-                Case.addPropertyChangeListener(pcl);
+                Case.addEventTypeSubscriber(EnumSet.of(Case.Events.CURRENT_CASE), pcl);
                 super.addNotify();
                 refreshKeys();
             }
@@ -725,10 +726,11 @@ final public class Accounts implements AutopsyVisitableItem {
             }
         }
 
+        @NbBundle.Messages("Accounts.ByBINNode.name=By BIN")
         private ByBINNode() {
             super(Children.LEAF);
             setChildren(Children.createLazy(BINFactory::new));
-            setName("By BIN");  //NON-NLS
+            setName(Bundle.Accounts_ByBINNode_name());  //NON-NLS
             updateDisplayName();
             this.setIconBaseWithExtension("org/sleuthkit/autopsy/images/bank.png");   //NON-NLS
             reviewStatusBus.register(this);

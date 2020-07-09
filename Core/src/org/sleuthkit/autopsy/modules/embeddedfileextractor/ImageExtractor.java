@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  *
- * Copyright 2011-2015 Basis Technology Corp.
+ * Copyright 2011-2017 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,17 +21,24 @@ package org.sleuthkit.autopsy.modules.embeddedfileextractor;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.IllegalArgumentException;
+import java.lang.IndexOutOfBoundsException;
+import java.lang.NullPointerException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
-import org.apache.poi.hslf.model.Picture;
-import org.apache.poi.hslf.usermodel.PictureData;
-import org.apache.poi.hslf.usermodel.SlideShow;
+import org.apache.poi.POIXMLException;
+import org.apache.poi.hwpf.usermodel.Picture;
+import org.apache.poi.hslf.usermodel.HSLFPictureData;
+import org.apache.poi.hslf.usermodel.HSLFSlideShow;
+import org.apache.poi.hssf.record.RecordInputStream.LeftoverDataException;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.hwpf.model.PicturesTable;
+import org.apache.poi.sl.usermodel.PictureData.PictureType;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.util.RecordFormatException;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFPictureData;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -120,7 +127,7 @@ class ImageExtractor {
             }
             return false;
         } catch (TskCoreException ex) {
-            logger.log(Level.WARNING, "Error executing FileTypeDetector.getFileType()", ex); // NON-NLS
+            logger.log(Level.SEVERE, "Error executing FileTypeDetector.getFileType()", ex); // NON-NLS
             return false;
         }
     }
@@ -152,7 +159,7 @@ class ImageExtractor {
                 }
             }
         } catch (TskCoreException e) {
-            logger.log(Level.WARNING, String.format("Error checking if file already has been processed, skipping: %s", parentFileName), e); //NON-NLS
+            logger.log(Level.SEVERE, String.format("Error checking if file already has been processed, skipping: %s", parentFileName), e); //NON-NLS
             return;
         }
         switch (abstractFileExtractionFormat) {
@@ -189,7 +196,7 @@ class ImageExtractor {
                         extractedImage.getCtime(), extractedImage.getCrtime(), extractedImage.getAtime(), extractedImage.getAtime(),
                         true, abstractFile, null, EmbeddedFileExtractorModuleFactory.getModuleName(), null, null, TskData.EncodingType.XOR1));
             } catch (TskCoreException ex) {
-                logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.extractImage.addToDB.exception.msg"), ex); //NON-NLS
+                logger.log(Level.SEVERE, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.extractImage.addToDB.exception.msg"), ex); //NON-NLS
             }
         }
         if (!listOfExtractedImages.isEmpty()) {
@@ -207,24 +214,35 @@ class ImageExtractor {
      *         extracted.
      */
     private List<ExtractedImage> extractImagesFromDoc(AbstractFile af) {
-        List<ExtractedImage> listOfExtractedImages;
-        HWPFDocument doc = null;
+        List<Picture> listOfAllPictures;
+        
         try {
-            doc = new HWPFDocument(new ReadContentInputStream(af));
+            HWPFDocument doc = new HWPFDocument(new ReadContentInputStream(af));
+            PicturesTable pictureTable = doc.getPicturesTable();
+            listOfAllPictures = pictureTable.getAllPictures();
+        } catch (IOException | IllegalArgumentException |
+                IndexOutOfBoundsException | NullPointerException ex) {
+            // IOException:
+            // Thrown when the document has issues being read.
+            
+            // IllegalArgumentException:
+            // This will catch OldFileFormatException, which is thrown when the
+            // document's format is Word 95 or older. Alternatively, this is
+            // thrown when attempting to load an RTF file as a DOC file.
+            // However, our code verifies the file format before ever running it
+            // through the ImageExtractor. This exception gets thrown in the
+            // "IN10-0137.E01" image regardless. The reason is unknown.
+            
+            // IndexOutOfBoundsException:
+            // NullPointerException:
+            // These get thrown in certain images. The reason is unknown. It is
+            // likely due to problems with the file formats that POI is poorly
+            // handling.
+            
+            return null;
         } catch (Throwable ex) {
             // instantiating POI containers throw RuntimeExceptions
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.docContainer.init.err", af.getName()), ex); //NON-NLS
-            return null;
-        }
-
-        PicturesTable pictureTable = null;
-        List<org.apache.poi.hwpf.usermodel.Picture> listOfAllPictures = null;
-        try {
-            pictureTable = doc.getPicturesTable();
-            listOfAllPictures = pictureTable.getAllPictures();
-        } catch (Exception ex) {
-            // log internal Java and Apache errors as WARNING
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
+            logger.log(Level.SEVERE, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.docContainer.init.err", af.getName()), ex); //NON-NLS
             return null;
         }
 
@@ -237,15 +255,13 @@ class ImageExtractor {
         if (outputFolderPath == null) {
             return null;
         }
-        listOfExtractedImages = new ArrayList<>();
+        List<ExtractedImage> listOfExtractedImages = new ArrayList<>();
         byte[] data = null;
-        for (org.apache.poi.hwpf.usermodel.Picture picture : listOfAllPictures) {
+        for (Picture picture : listOfAllPictures) {
             String fileName = picture.suggestFullFileName();
             try {
                 data = picture.getContent();
             } catch (Exception ex) {
-                // log internal Java and Apache errors as WARNING
-                logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
                 return null;
             }
             writeExtractedImage(Paths.get(outputFolderPath, fileName).toString(), data);
@@ -265,21 +281,22 @@ class ImageExtractor {
      *         extracted.
      */
     private List<ExtractedImage> extractImagesFromDocx(AbstractFile af) {
-        List<ExtractedImage> listOfExtractedImages;
-        XWPFDocument docx = null;
+        List<XWPFPictureData> listOfAllPictures = null;
+        
         try {
-            docx = new XWPFDocument(new ReadContentInputStream(af));
+            XWPFDocument docx = new XWPFDocument(new ReadContentInputStream(af));
+            listOfAllPictures = docx.getAllPictures();
+        } catch (POIXMLException | IOException ex) {
+            // POIXMLException:
+            // Thrown when document fails to load
+            
+            // IOException:
+            // Thrown when the document has issues being read.
+            
+            return null;
         } catch (Throwable ex) {
             // instantiating POI containers throw RuntimeExceptions
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.docxContainer.init.err", af.getName()), ex); //NON-NLS
-            return null;
-        }
-        List<XWPFPictureData> listOfAllPictures = null;
-        try {
-            listOfAllPictures = docx.getAllPictures();
-        } catch (Exception ex) {
-            // log internal Java and Apache errors as WARNING
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
+            logger.log(Level.SEVERE, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.docxContainer.init.err", af.getName()), ex); //NON-NLS
             return null;
         }
 
@@ -292,18 +309,15 @@ class ImageExtractor {
             outputFolderPath = getOutputFolderPath(this.parentFileName);
         }
         if (outputFolderPath == null) {
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.extractImageFrom.outputPath.exception.msg", af.getName())); //NON-NLS
             return null;
         }
-        listOfExtractedImages = new ArrayList<>();
+        List<ExtractedImage> listOfExtractedImages = new ArrayList<>();
         byte[] data = null;
         for (XWPFPictureData xwpfPicture : listOfAllPictures) {
             String fileName = xwpfPicture.getFileName();
             try {
                 data = xwpfPicture.getData();
             } catch (Exception ex) {
-                // log internal Java and Apache errors as WARNING
-                logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
                 return null;
             }
             writeExtractedImage(Paths.get(outputFolderPath, fileName).toString(), data);
@@ -321,64 +335,70 @@ class ImageExtractor {
      *         extracted.
      */
     private List<ExtractedImage> extractImagesFromPpt(AbstractFile af) {
-        List<ExtractedImage> listOfExtractedImages;
-        SlideShow ppt = null;
+        List<HSLFPictureData> listOfAllPictures = null;
+        
         try {
-            ppt = new SlideShow(new ReadContentInputStream(af));
+            HSLFSlideShow ppt = new HSLFSlideShow(new ReadContentInputStream(af));
+            listOfAllPictures = ppt.getPictureData();
+        } catch (IOException | IllegalArgumentException |
+                IndexOutOfBoundsException ex) {
+            // IllegalArgumentException:
+            // This will catch OldFileFormatException, which is thrown when the
+            // document version is unsupported. The IllegalArgumentException may
+            // also get thrown for unknown reasons.
+            
+            // IOException:
+            // Thrown when the document has issues being read.
+            
+            // IndexOutOfBoundsException:
+            // This gets thrown in certain images. The reason is unknown. It is
+            // likely due to problems with the file formats that POI is poorly
+            // handling.
+            
+            return null;
         } catch (Throwable ex) {
             // instantiating POI containers throw RuntimeExceptions
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.pptContainer.init.err", af.getName()), ex); //NON-NLS
-            return null;
-        }
-
-        //extract all pictures contained in the presentation
-        PictureData[] listOfAllPictures = null;
-        try {
-            listOfAllPictures = ppt.getPictureData();
-        } catch (Exception ex) {
-            // log internal Java and Apache errors as WARNING
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
+            logger.log(Level.SEVERE, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.pptContainer.init.err", af.getName()), ex); //NON-NLS
             return null;
         }
 
         // if no images are extracted from the PPT, return null, else initialize
         // the output folder for image extraction.
         String outputFolderPath;
-        if (listOfAllPictures.length == 0) {
+        if (listOfAllPictures.isEmpty()) {
             return null;
         } else {
             outputFolderPath = getOutputFolderPath(this.parentFileName);
         }
         if (outputFolderPath == null) {
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.extractImageFrom.outputPath.exception.msg", af.getName())); //NON-NLS
             return null;
         }
 
         // extract the images to the above initialized outputFolder.
         // extraction path - outputFolder/image_number.ext
         int i = 0;
-        listOfExtractedImages = new ArrayList<>();
+        List<ExtractedImage> listOfExtractedImages = new ArrayList<>();
         byte[] data = null;
-        for (PictureData pictureData : listOfAllPictures) {
+        for (HSLFPictureData pictureData : listOfAllPictures) {
 
             // Get image extension, generate image name, write image to the module
             // output folder, add it to the listOfExtractedImageAbstractFiles
-            int type = pictureData.getType();
+            PictureType type = pictureData.getType();
             String ext;
             switch (type) {
-                case Picture.JPEG:
+                case JPEG:
                     ext = ".jpg"; //NON-NLS
                     break;
-                case Picture.PNG:
+                case PNG:
                     ext = ".png"; //NON-NLS
                     break;
-                case Picture.WMF:
+                case WMF:
                     ext = ".wmf"; //NON-NLS
                     break;
-                case Picture.EMF:
+                case EMF:
                     ext = ".emf"; //NON-NLS
                     break;
-                case Picture.PICT:
+                case PICT:
                     ext = ".pict"; //NON-NLS
                     break;
                 default:
@@ -388,8 +408,6 @@ class ImageExtractor {
             try {
                 data = pictureData.getData();
             } catch (Exception ex) {
-                // log internal Java and Apache errors as WARNING
-                logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
                 return null;
             }
             writeExtractedImage(Paths.get(outputFolderPath, imageName).toString(), data);
@@ -408,21 +426,22 @@ class ImageExtractor {
      *         extracted.
      */
     private List<ExtractedImage> extractImagesFromPptx(AbstractFile af) {
-        List<ExtractedImage> listOfExtractedImages;
-        XMLSlideShow pptx;
+        List<XSLFPictureData> listOfAllPictures = null;
+        
         try {
-            pptx = new XMLSlideShow(new ReadContentInputStream(af));
+            XMLSlideShow pptx = new XMLSlideShow(new ReadContentInputStream(af));
+            listOfAllPictures = pptx.getPictureData();
+        } catch (POIXMLException | IOException ex) {
+            // POIXMLException:
+            // Thrown when document fails to load.
+            
+            // IOException:
+            // Thrown when the document has issues being read
+            
+            return null;
         } catch (Throwable ex) {
             // instantiating POI containers throw RuntimeExceptions
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.pptxContainer.init.err", af.getName()), ex); //NON-NLS
-            return null;
-        }
-        List<XSLFPictureData> listOfAllPictures = null;
-        try {
-            listOfAllPictures = pptx.getAllPictures();
-        } catch (Exception ex) {
-            // log internal Java and Apache errors as WARNING
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
+            logger.log(Level.SEVERE, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.pptxContainer.init.err", af.getName()), ex); //NON-NLS
             return null;
         }
 
@@ -435,11 +454,10 @@ class ImageExtractor {
             outputFolderPath = getOutputFolderPath(this.parentFileName);
         }
         if (outputFolderPath == null) {
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.extractImageFrom.outputPath.exception.msg", af.getName())); //NON-NLS
             return null;
         }
 
-        listOfExtractedImages = new ArrayList<>();
+        List<ExtractedImage> listOfExtractedImages = new ArrayList<>();
         byte[] data = null;
         for (XSLFPictureData xslsPicture : listOfAllPictures) {
 
@@ -449,8 +467,6 @@ class ImageExtractor {
             try {
                 data = xslsPicture.getData();
             } catch (Exception ex) {
-                // log internal Java and Apache errors as WARNING
-                logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
                 return null;
             }
             writeExtractedImage(Paths.get(outputFolderPath, fileName).toString(), data);
@@ -471,23 +487,40 @@ class ImageExtractor {
      *         extracted.
      */
     private List<ExtractedImage> extractImagesFromXls(AbstractFile af) {
-        List<ExtractedImage> listOfExtractedImages;
-
-        Workbook xls;
+        List<? extends org.apache.poi.ss.usermodel.PictureData> listOfAllPictures = null;
+        
         try {
-            xls = new HSSFWorkbook(new ReadContentInputStream(af));
+            Workbook xls = new HSSFWorkbook(new ReadContentInputStream(af));
+            listOfAllPictures = xls.getAllPictures();
+        } catch (IOException | LeftoverDataException |
+                RecordFormatException | IllegalArgumentException |
+                IndexOutOfBoundsException ex) {
+            // IllegalArgumentException:
+            // This will catch OldFileFormatException, which is thrown when the
+            // document version is unsupported. The IllegalArgumentException may
+            // also get thrown for unknown reasons.
+            
+            // IOException:
+            // Thrown when the document has issues being read.
+            
+            // LeftoverDataException:
+            // This is thrown for poorly formatted files that have more data
+            // than expected.
+            
+            // RecordFormatException:
+            // This is thrown for poorly formatted files that have less data
+            // that expected.
+            
+            // IllegalArgumentException:
+            // IndexOutOfBoundsException:
+            // These get thrown in certain images. The reason is unknown. It is
+            // likely due to problems with the file formats that POI is poorly
+            // handling.
+            
+            return null;
         } catch (Throwable ex) {
             // instantiating POI containers throw RuntimeExceptions
-            logger.log(Level.WARNING, String.format("%s%s", NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.xlsContainer.init.err", af.getName()), af.getName()), ex); //NON-NLS
-            return null;
-        }
-
-        List<? extends org.apache.poi.ss.usermodel.PictureData> listOfAllPictures = null;
-        try {
-            listOfAllPictures = xls.getAllPictures();
-        } catch (Exception ex) {
-            // log internal Java and Apache errors as WARNING
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
+            logger.log(Level.SEVERE, String.format("%s%s", NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.xlsContainer.init.err", af.getName()), af.getName()), ex); //NON-NLS
             return null;
         }
 
@@ -500,20 +533,17 @@ class ImageExtractor {
             outputFolderPath = getOutputFolderPath(this.parentFileName);
         }
         if (outputFolderPath == null) {
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.extractImageFrom.outputPath.exception.msg", af.getName())); //NON-NLS
             return null;
         }
 
         int i = 0;
-        listOfExtractedImages = new ArrayList<>();
+        List<ExtractedImage> listOfExtractedImages = new ArrayList<>();
         byte[] data = null;
         for (org.apache.poi.ss.usermodel.PictureData pictureData : listOfAllPictures) {
             String imageName = UNKNOWN_NAME_PREFIX + i + "." + pictureData.suggestFileExtension(); //NON-NLS
             try {
                 data = pictureData.getData();
             } catch (Exception ex) {
-                // log internal Java and Apache errors as WARNING
-                logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
                 return null;
             }
             writeExtractedImage(Paths.get(outputFolderPath, imageName).toString(), data);
@@ -533,22 +563,22 @@ class ImageExtractor {
      *         extracted.
      */
     private List<ExtractedImage> extractImagesFromXlsx(AbstractFile af) {
-        List<ExtractedImage> listOfExtractedImages;
-        Workbook xlsx;
+        List<? extends org.apache.poi.ss.usermodel.PictureData> listOfAllPictures = null;
+        
         try {
-            xlsx = new XSSFWorkbook(new ReadContentInputStream(af));
+            Workbook xlsx = new XSSFWorkbook(new ReadContentInputStream(af));
+            listOfAllPictures = xlsx.getAllPictures();
+        } catch (POIXMLException | IOException ex) {
+            // POIXMLException:
+            // Thrown when document fails to load.
+            
+            // IOException:
+            // Thrown when the document has issues being read
+            
+            return null;
         } catch (Throwable ex) {
             // instantiating POI containers throw RuntimeExceptions
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.xlsxContainer.init.err", af.getName()), ex); //NON-NLS
-            return null;
-        }
-
-        List<? extends org.apache.poi.ss.usermodel.PictureData> listOfAllPictures = null;
-        try {
-            listOfAllPictures = xlsx.getAllPictures();
-        } catch (Exception ex) {
-            // log internal Java and Apache errors as WARNING
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
+            logger.log(Level.SEVERE, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.xlsxContainer.init.err", af.getName()), ex); //NON-NLS
             return null;
         }
 
@@ -561,20 +591,17 @@ class ImageExtractor {
             outputFolderPath = getOutputFolderPath(this.parentFileName);
         }
         if (outputFolderPath == null) {
-            logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.extractImageFrom.outputPath.exception.msg", af.getName())); //NON-NLS
             return null;
         }
 
         int i = 0;
-        listOfExtractedImages = new ArrayList<>();
+        List<ExtractedImage> listOfExtractedImages = new ArrayList<>();
         byte[] data = null;
         for (org.apache.poi.ss.usermodel.PictureData pictureData : listOfAllPictures) {
             String imageName = UNKNOWN_NAME_PREFIX + i + "." + pictureData.suggestFileExtension();
             try {
                 data = pictureData.getData();
             } catch (Exception ex) {
-                // log internal Java and Apache errors as WARNING
-                logger.log(Level.WARNING, NbBundle.getMessage(this.getClass(), "EmbeddedFileExtractorIngestModule.ImageExtractor.processing.err", af.getName()), ex); //NON-NLS
                 return null;
             }
             writeExtractedImage(Paths.get(outputFolderPath, imageName).toString(), data);
